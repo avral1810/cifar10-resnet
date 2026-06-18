@@ -4,6 +4,10 @@ from pathlib import Path
 import torch
 import matplotlib.pyplot as plt
 
+from collections.abc import Callable
+from functools import wraps
+from time import perf_counter
+from typing import Any
 
 def unnormalize_image(
     image: torch.Tensor,
@@ -124,3 +128,24 @@ def show_image_and_feature_maps(
         plt.close(fig)
     else:
         plt.show()
+def time_execution(func: Callable[..., Any]) -> Callable[..., Any]:
+    @wraps(func)
+    def wrapper(*args: Any, **kwargs: Any) -> Any:
+        start_time = perf_counter()
+        result = func(*args, **kwargs)
+        elapsed = perf_counter() - start_time
+
+        print(f"{func.__name__} completed in {elapsed:.2f} seconds")
+        return result
+
+    return wrapper
+
+
+def get_device() -> torch.device:
+    if torch.cuda.is_available():
+        return torch.device("cuda")
+
+    if torch.backends.mps.is_available():
+        return torch.device("mps")
+
+    return torch.device("cpu")

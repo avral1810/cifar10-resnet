@@ -147,6 +147,7 @@ def create_dataloader(
     val_frac: float=0.1,
     seed: int=42,
     source: str="torchvision",
+    pin_memory: bool=False,
 ) -> tuple[DataLoader, DataLoader, DataLoader]:
     train, test = create_datasets(
         data_dir=data_dir,
@@ -159,18 +160,21 @@ def create_dataloader(
         batch_size=batch_size,
         shuffle=True,
         num_workers=num_workers,
+        pin_memory=pin_memory,
     )
     val_loader = DataLoader(
         dataset=val,
         batch_size=batch_size,
         shuffle=False,
         num_workers=num_workers,
+        pin_memory=pin_memory,
     )
     test_loader = DataLoader(
         dataset=test,
         batch_size=batch_size,
         shuffle=False,
         num_workers=num_workers,
+        pin_memory=pin_memory,
     )
     return train_loader, val_loader, test_loader
 
