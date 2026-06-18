@@ -110,6 +110,7 @@ def build_transform(mean: torch.Tensor, std: torch.Tensor) -> transforms.Compose
     return transform
 
 def preload_dataset(dataset):
+    print(f"Preloading Dataset to GPU Memory")
     images = []
     labels = []
 
