@@ -111,7 +111,7 @@ def build_transform(mean: torch.Tensor, std: torch.Tensor) -> transforms.Compose
 
 def preload_dataset(
     dataset: Dataset,
-    device: torch.Device,
+    device: torch.device,
     preload_to_device: bool=False,
 ):
     print(f"Preloading Dataset to {device.type if preload_to_device else 'cpu'} Memory")
@@ -130,7 +130,7 @@ def preload_dataset(
 
 
 def create_datasets(
-    device: torch.Device,
+    device: torch.device,
     batch_size: int=128,
     source: str="torchvision",
     preload: bool=False,
@@ -174,7 +174,7 @@ def create_datasets(
     return train_dataset, test_dataset
 
 def create_dataloader(
-    device: torch.Device,
+    device: torch.device,
     batch_size: int=128,
     num_workers:int=0,
     val_frac: float=0.1,

@@ -23,16 +23,17 @@ def get_config(file_name: str="configs/baseline_cnn.yaml"):
 @time_execution
 def get_loaders(
     source: str,
-    device: torch.Device,
+    device: torch.device,
     batch_size: int,
     num_workers: int,
+    val_frac: float,
     pin_memory: bool=False,
     preload: bool=False,
     preload_to_device: bool=False,
     seed: int=42,
 ):
     if preload and preload_to_device and (num_workers != 0 or pin_memory is not False):
-        print("Overriding `num_workers` to 0 becuase of preloading to GPU")
+        print("Overriding `num_workers` to 0 because of preloading to GPU")
         num_workers = 0
         pin_memory = False
         
@@ -41,6 +42,7 @@ def get_loaders(
         source=source,
         batch_size=batch_size,
         num_workers=num_workers,
+        val_frac=val_frac,
         pin_memory=pin_memory,
         preload=preload,
         preload_to_device=preload_to_device,
@@ -56,6 +58,7 @@ def main():
     source=config["data"].get("source", "torchvision")
     batch_size = config["data"].get("batch_size", 1024)
     num_workers = config["data"].get("num_workers", 0)
+    val_frac = config["data"].get("val_frac", 0.1)
     pin_memory = config["data"].get("pin_memory", False) 
     preload = config["data"].get("preload", False)
     preload_to_device = config["data"].get("preload_to_device", False)
@@ -65,7 +68,7 @@ def main():
     print(f"===Running Experiment `{exp_name}`===")
      
     if preload and preload_to_device and (num_workers != 0 or pin_memory is not False):
-        print("Overriding `num_workers` to 0 becuase of preloading to GPU")
+        print("Overriding `num_workers` to 0 because of preloading to GPU")
         num_workers = 0
         pin_memory = False
     
@@ -78,6 +81,7 @@ def main():
         device=device,
         batch_size=batch_size,
         num_workers=num_workers, 
+        val_frac=val_frac,
         pin_memory=pin_memory, 
         preload=preload, 
         preload_to_device=preload_to_device,
@@ -127,7 +131,7 @@ def main():
         dataloader=test_loader,
         criterion=criterion,
         device=device,
-        pin_memory=config["data"].get("pin_memory", False),
+        pin_memory=pin_memory,
     )
     print(
         f"Epoch {epoch + 1}/{epochs} | "
