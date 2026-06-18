@@ -9,6 +9,11 @@ from cifar10_resnet.dataset import (
     split_dataset,
 )
 from cifar10_resnet.model import SimpleCNN
+from cifar10_resnet.registry import (
+    get_criterion_class,
+    get_model_class,
+    get_optimizer_class,
+)
 from cifar10_resnet.train import train_one_epoch
 from cifar10_resnet.evaluate import evaluate
 from cifar10_resnet.utils import get_device, show_image_and_feature_maps, time_execution
@@ -23,6 +28,9 @@ __all__ = [
     "load_or_compute_stats",
     "split_dataset",
     "SimpleCNN",
+    "get_model_class",
+    "get_optimizer_class",
+    "get_criterion_class",
     "train_one_epoch",
     "show_image_and_feature_maps",
     "evaluate",

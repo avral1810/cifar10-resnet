@@ -1,41 +1,98 @@
 import torch
 import torch.nn as nn
 from time import perf_counter
+import yaml
 
 from cifar10_resnet import (
-    SimpleCNN,
     create_dataloader,
-    show_image_and_feature_maps,
-    train_one_epoch,
     evaluate,
+    get_criterion_class,
     get_device,
+    get_model_class,
+    get_optimizer_class,
+    show_image_and_feature_maps,
     time_execution,
+    train_one_epoch,
 )
 
+def get_config(file_name: str="configs/baseline_cnn.yaml"):
+    with open(file_name, "r") as ip_file:
+        config = yaml.safe_load(ip_file)
+    return config
+
 @time_execution
-def get_loaders(device):
-    source = "hf"
-    batch_size = 1024
-    pin_memory = device.type == "cuda"
+def get_loaders(
+    source: str,
+    device: torch.Device,
+    batch_size: int,
+    num_workers: int,
+    pin_memory: bool=False,
+    preload: bool=False,
+    preload_to_device: bool=False,
+    seed: int=42,
+):
+    if preload and preload_to_device and (num_workers != 0 or pin_memory is not False):
+        print("Overriding `num_workers` to 0 becuase of preloading to GPU")
+        num_workers = 0
+        pin_memory = False
+        
     train_loader, val_loader, test_loader = create_dataloader(
+        device=device,
         source=source,
         batch_size=batch_size,
-        num_workers=8,
+        num_workers=num_workers,
         pin_memory=pin_memory,
-        preload=True,
+        preload=preload,
+        preload_to_device=preload_to_device,
+        seed=seed,
     )
     return train_loader, val_loader, test_loader
 
 @time_execution
 def main():
-    device = get_device()
-    pin_memory = device.type == "cuda"
-    train_loader, val_loader, test_loader = get_loaders(device)
-    model = SimpleCNN()
-    criterion = nn.CrossEntropyLoss()
-    optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+    config = get_config()
+    device_str = config["runtime"].get("device", "auto")
+    
+    source=config["data"].get("source", "torchvision")
+    batch_size = config["data"].get("batch_size", 1024)
+    num_workers = config["data"].get("num_workers", 0)
+    pin_memory = config["data"].get("pin_memory", False) 
+    preload = config["data"].get("preload", False)
+    preload_to_device = config["data"].get("preload_to_device", False)
+    seed = config["experiment"].get("seed", 42)
+    exp_name = config["experiment"].get("name", "Unknown")
+
+    print(f"===Running Experiment `{exp_name}`===")
+     
+    if preload and preload_to_device and (num_workers != 0 or pin_memory is not False):
+        print("Overriding `num_workers` to 0 becuase of preloading to GPU")
+        num_workers = 0
+        pin_memory = False
+    
+    if device_str == "auto":
+        device = get_device()
+    else:
+        device = torch.device(device_str)
+    train_loader, val_loader, test_loader = get_loaders(
+        source=source,
+        device=device,
+        batch_size=batch_size,
+        num_workers=num_workers, 
+        pin_memory=pin_memory, 
+        preload=preload, 
+        preload_to_device=preload_to_device,
+        seed=seed,
+    )
+
+    model = get_model_class(config["model"]["name"])()
+    criterion = get_criterion_class(config["train"]["criterion"])()
+    optimizer = get_optimizer_class(config["train"]["optimizer"])(
+        model.parameters(),
+        lr=config["train"]["learning_rate"],
+        weight_decay=config["train"].get("weight_decay", 0.0),
+    )
     model = model.to(device)
-    epochs = 10
+    epochs = config["train"]["epochs"]
 
     for epoch in range(epochs):
         start = perf_counter()
@@ -53,6 +110,7 @@ def main():
             criterion=criterion,
             device=device,
             pin_memory=pin_memory,
+
         )
         end = perf_counter() - start
         if epoch < 5 or epoch % 10 == 0:
@@ -69,7 +127,7 @@ def main():
         dataloader=test_loader,
         criterion=criterion,
         device=device,
-        pin_memory=pin_memory,
+        pin_memory=config["data"].get("pin_memory", False),
     )
     print(
         f"Epoch {epoch + 1}/{epochs} | "

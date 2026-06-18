@@ -29,5 +29,5 @@ def train_one_epoch(
         end = perf_counter()
         data_time += (mid - start)
         model_time += (end - mid)
-    print(f"\n\tTook {data_time}s to move data and {model_time} for model pass")
+    # print(f"\n\tTook {data_time}s to move data and {model_time} for model pass")
     return train_loss / len(dataloader.dataset)

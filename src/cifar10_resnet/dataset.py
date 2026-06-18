@@ -109,26 +109,33 @@ def build_transform(mean: torch.Tensor, std: torch.Tensor) -> transforms.Compose
     )
     return transform
 
-def preload_dataset(dataset):
-    print(f"Preloading Dataset to GPU Memory")
+def preload_dataset(
+    dataset: Dataset,
+    device: torch.Device,
+    preload_to_device: bool=False,
+):
+    print(f"Preloading Dataset to {device.type if preload_to_device else 'cpu'} Memory")
     images = []
     labels = []
 
     for image, label in dataset:
         images.append(image)
         labels.append(label)
-
     images = torch.stack(images)
     labels = torch.tensor(labels, dtype=torch.long)
+    if preload_to_device:
+        images = images.to(device)
+        labels = labels.to(device)
     return TensorDataset(images, labels)
 
 
-
 def create_datasets(
-    data_dir: str | Path="data/raw",
+    device: torch.Device,
     batch_size: int=128,
     source: str="torchvision",
     preload: bool=False,
+    preload_to_device: bool=False,
+    data_dir: str | Path="data/raw",
 ) -> tuple[Dataset, Dataset]:
     mean, std = load_or_compute_stats(data_dir=data_dir, batch_size=batch_size, source=source)
     transform = build_transform(mean, std)
@@ -155,11 +162,19 @@ def create_datasets(
     else:
         raise ValueError(f"Unknown source: {source}")
     if preload:
-        train_dataset, test_dataset = preload_dataset(train_dataset), preload_dataset(test_dataset)
+        train_dataset, test_dataset = preload_dataset(
+            dataset=train_dataset, 
+            device=device, 
+            preload_to_device=preload_to_device
+        ), preload_dataset(
+            dataset=test_dataset,
+            device=device, 
+            preload_to_device=preload_to_device
+        )
     return train_dataset, test_dataset
 
 def create_dataloader(
-    data_dir: str | Path="data/raw",
+    device: torch.Device,
     batch_size: int=128,
     num_workers:int=0,
     val_frac: float=0.1,
@@ -167,12 +182,16 @@ def create_dataloader(
     source: str="torchvision",
     pin_memory: bool=False,
     preload: bool=False,
+    preload_to_device: bool=False,
+    data_dir: str | Path="data/raw",
 ) -> tuple[DataLoader, DataLoader, DataLoader]:
     train, test = create_datasets(
+        device=device,
         data_dir=data_dir,
         batch_size=batch_size,
         source=source,
         preload=preload,
+        preload_to_device=preload_to_device,
     )
     train, val = split_dataset(train, val_frac=val_frac, seed=seed)
     train_loader = DataLoader(
