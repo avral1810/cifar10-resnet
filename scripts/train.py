@@ -13,10 +13,8 @@ from cifar10_resnet import (
 )
 
 @time_execution
-def main():
-    source = "hf"
-    device = get_device()
-    print(f"Using Device: {device}")
+def get_loaders(device):
+    source = "torchvision"
     batch_size = 1024
     pin_memory = device.type == "cuda"
     train_loader, val_loader, test_loader = create_dataloader(
@@ -24,7 +22,15 @@ def main():
         batch_size=batch_size,
         num_workers=0,
         pin_memory=pin_memory,
+        preload=True,
     )
+    return train_loader, val_loader, test_loader
+
+@time_execution
+def main():
+    device = get_device()
+    pin_memory = device.type == "cuda"
+    train_loader, val_loader, test_loader = get_loaders(device)
     model = SimpleCNN()
     criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)

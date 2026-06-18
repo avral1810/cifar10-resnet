@@ -1,7 +1,7 @@
 from pathlib import Path
 from torchvision import transforms
 import torchvision
-from torch.utils.data import DataLoader, Dataset, random_split, Subset
+from torch.utils.data import DataLoader, Dataset, random_split, Subset, TensorDataset
 import torch
 import json
 import datasets
@@ -109,10 +109,25 @@ def build_transform(mean: torch.Tensor, std: torch.Tensor) -> transforms.Compose
     )
     return transform
 
+def preload_dataset(dataset):
+    images = []
+    labels = []
+
+    for image, label in dataset:
+        images.append(image)
+        labels.append(label)
+
+    images = torch.stack(images)
+    labels = torch.tensor(labels, dtype=torch.long)
+    return TensorDataset(images, labels)
+
+
+
 def create_datasets(
     data_dir: str | Path="data/raw",
     batch_size: int=128,
     source: str="torchvision",
+    preload: bool=False,
 ) -> tuple[Dataset, Dataset]:
     mean, std = load_or_compute_stats(data_dir=data_dir, batch_size=batch_size, source=source)
     transform = build_transform(mean, std)
@@ -138,6 +153,8 @@ def create_datasets(
 
     else:
         raise ValueError(f"Unknown source: {source}")
+    if preload:
+        train_dataset, test_dataset = preload_dataset(train_dataset), preload_dataset(test_dataset)
     return train_dataset, test_dataset
 
 def create_dataloader(
@@ -148,11 +165,13 @@ def create_dataloader(
     seed: int=42,
     source: str="torchvision",
     pin_memory: bool=False,
+    preload: bool=False,
 ) -> tuple[DataLoader, DataLoader, DataLoader]:
     train, test = create_datasets(
         data_dir=data_dir,
         batch_size=batch_size,
         source=source,
+        preload=preload,
     )
     train, val = split_dataset(train, val_frac=val_frac, seed=seed)
     train_loader = DataLoader(
