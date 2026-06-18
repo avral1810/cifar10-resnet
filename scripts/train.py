@@ -22,7 +22,7 @@ def main():
     train_loader, val_loader, test_loader = create_dataloader(
         source=source,
         batch_size=batch_size,
-        num_workers=8,
+        num_workers=0,
         pin_memory=pin_memory,
     )
     model = SimpleCNN()

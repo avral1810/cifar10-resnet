@@ -1,0 +1,11 @@
+# Native Apple Silicon / MPS environment.
+# Use this instead of requirements.txt on macOS.
+torch
+torchvision
+torchaudio
+numpy
+matplotlib
+datasets
+tqdm
+tensorboard
+PyYAML
