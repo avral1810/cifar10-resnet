@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cifar10-resnet"
+version = "0.1.0"
+description = "A CIFAR-10 image classification project with CNN and ResNet models in PyTorch."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "torch==2.11.0+cu128",
+    "torchvision==0.26.0+cu128",
+    "torchaudio==2.11.0+cu128",
+    "numpy==2.4.4",
+    "matplotlib==3.11.0",
+    "PyYAML==6.0.3",
+    "tqdm==4.68.2",
+    "tensorboard==2.20.0",
+    "datasets==5.0.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "ruff",
+]
