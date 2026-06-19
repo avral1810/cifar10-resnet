@@ -1,13 +1,16 @@
 import torch
-import torch.nn as nn
 from time import perf_counter
+from datetime import datetime
+from pathlib import Path
 import yaml
+from torch.utils.tensorboard import SummaryWriter
 
 from cifar10_resnet import (
     create_dataloader,
     evaluate,
     get_criterion_class,
     get_device,
+    get_gpu_stats,
     get_model_class,
     get_optimizer_class,
     show_image_and_feature_maps,
@@ -19,6 +22,13 @@ def get_config(file_name: str="configs/baseline_cnn.yaml"):
     with open(file_name, "r") as ip_file:
         config = yaml.safe_load(ip_file)
     return config
+
+
+def create_writer(config: dict) -> SummaryWriter:
+    run_dir = Path(config["outputs"].get("run_dir", "runs"))
+    experiment_name = config["experiment"].get("name", "experiment")
+    timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    return SummaryWriter(run_dir / f"{experiment_name}-{timestamp}")
 
 @time_execution
 def get_loaders(
@@ -109,6 +119,8 @@ def main():
     )
     model = model.to(device)
     epochs = config["train"]["epochs"]
+    writer = create_writer(config)
+    writer.add_text("config/yaml", f"```yaml\n{yaml.safe_dump(config)}\n```")
 
     for epoch in range(epochs):
         start = perf_counter()
@@ -129,6 +141,16 @@ def main():
 
         )
         end = perf_counter() - start
+        step = epoch + 1
+        writer.add_scalar("loss/train", train_loss, step)
+        writer.add_scalar("loss/val", val_loss, step)
+        writer.add_scalar("accuracy/val", val_accuracy, step)
+        writer.add_scalar("time/epoch_seconds", end, step)
+        writer.add_scalar("optimizer/learning_rate", optimizer.param_groups[0]["lr"], step)
+
+        for name, value in get_gpu_stats(device).items():
+            writer.add_scalar(name, value, step)
+
         if epoch < 5 or epoch % 10 == 0:
             print(
                 f"Epoch {epoch + 1}/{epochs} | "
@@ -150,6 +172,9 @@ def main():
         f"test_loss={test_loss:.4f} | "
         f"test_accuracy={test_accuracy:.2%} | "
     )
+    writer.add_scalar("loss/test", test_loss, epochs)
+    writer.add_scalar("accuracy/test", test_accuracy, epochs)
+    writer.close()
 
 
 
