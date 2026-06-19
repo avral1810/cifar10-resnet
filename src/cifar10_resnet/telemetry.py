@@ -33,10 +33,13 @@ def get_gpu_stats(device: torch.device) -> dict[str, float]:
         return {}
 
     util, memory_used, memory_total, power, temp = values
+    memory_used_mb = float(memory_used)
+    memory_total_mb = float(memory_total)
+
     return {
         "gpu/utilization_percent": float(util),
-        "gpu/memory_used_mb": float(memory_used),
-        "gpu/memory_total_mb": float(memory_total),
+        "gpu/memory_used_mb": memory_used_mb,
+        "gpu/memory_used_percent": (memory_used_mb / memory_total_mb) * 100,
         "gpu/power_watts": float(power),
         "gpu/temperature_c": float(temp),
     }

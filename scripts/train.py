@@ -16,6 +16,8 @@ from cifar10_resnet import (
     show_image_and_feature_maps,
     time_execution,
     train_one_epoch,
+    save_checkpoint,
+    load_checkpoint,
 )
 
 def get_config(file_name: str="configs/baseline_cnn.yaml"):
@@ -60,11 +62,11 @@ def get_loaders(
         seed=seed,
         augmentation=augmentation,
     )
-    print(
-        f"Train DataLoader: {train_loader.dataset.dataset.transform} | {len(train_loader.dataset.dataset)}\n",
-        f"Val DataLoader: {val_loader.dataset.dataset.transform} | {len((val_loader.dataset.dataset))}\n",
-        f"Test DataLoader: {test_loader.dataset.transform} | {len((test_loader.dataset))}\n",
-    )
+    # print(
+    #     f"Train DataLoader: {train_loader.dataset.dataset.transform} | {len(train_loader.dataset.dataset)}\n",
+    #     f"Val DataLoader: {val_loader.dataset.dataset.transform} | {len((val_loader.dataset.dataset))}\n",
+    #     f"Test DataLoader: {test_loader.dataset.transform} | {len((test_loader.dataset))}\n",
+    # )
     return train_loader, val_loader, test_loader
 
 @time_execution
@@ -121,7 +123,9 @@ def main():
     epochs = config["train"]["epochs"]
     writer = create_writer(config)
     writer.add_text("config/yaml", f"```yaml\n{yaml.safe_dump(config)}\n```")
-
+    best_val_accuracy = -1.0
+    strike = 0
+    checkpoint_path = f'{config["outputs"].get("checkpoint_dir", "checkpoints")}/{exp_name}_{datetime.now().strftime("%Y%m%d-%H%M%S")}.pt' 
     for epoch in range(epochs):
         start = perf_counter()
         train_loss = train_one_epoch(
@@ -150,6 +154,24 @@ def main():
 
         for name, value in get_gpu_stats(device).items():
             writer.add_scalar(name, value, step)
+        
+        if val_accuracy > best_val_accuracy:
+            # print(f"Saving new Model checkpoint with accuracy: {val_accuracy:.2%}, epoch: {epoch}\n")
+            best_val_accuracy = val_accuracy
+            save_checkpoint(
+                model,
+                train_loss=train_loss,
+                val_loss=val_loss,
+                optimizer=optimizer,
+                epoch=epoch,
+                val_accuracy=val_accuracy,
+                path=checkpoint_path,
+            )
+            # reset strikes in case of 2 bad then a good one,
+            # n consicutive bad epochs stops the run
+            strike = 0
+        else:
+            strike += 1
 
         if epoch < 5 or epoch % 10 == 0:
             print(
@@ -159,9 +181,17 @@ def main():
                 f"val_accuracy={val_accuracy:.2%} | "
                 f"completed in {end:.2f} seconds"
             )
-    
-    test_loss, test_accuracy = evaluate(
+        if strike >= config["train"].get('early_stop_strike', 5):
+            print(f"Early Stop oppurtunity, stopping iterations at {val_accuracy:.2%}")
+            break
+    checkpoint = load_checkpoint(
         model=model,
+        optimizer=optimizer,
+        device=device,
+        path=checkpoint_path,
+    )
+    test_loss, test_accuracy = evaluate(
+        model=checkpoint['model'],
         dataloader=test_loader,
         criterion=criterion,
         device=device,
@@ -172,8 +202,8 @@ def main():
         f"test_loss={test_loss:.4f} | "
         f"test_accuracy={test_accuracy:.2%} | "
     )
-    writer.add_scalar("loss/test", test_loss, epochs)
-    writer.add_scalar("accuracy/test", test_accuracy, epochs)
+    writer.add_scalar("loss/test", test_loss, epoch + 1)
+    writer.add_scalar("accuracy/test", test_accuracy, epoch + 1)
     writer.close()
 
 

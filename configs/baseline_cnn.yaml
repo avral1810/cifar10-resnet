@@ -22,11 +22,12 @@ model:
   name: simple_cnn
 
 train:
-  epochs: 10
+  epochs: 100
   optimizer: adam
   learning_rate: 0.001
   weight_decay: 0.0
   criterion: cross_entropy_loss
+  early_stop_strike: 3
 
 logging:
   print_every: 1

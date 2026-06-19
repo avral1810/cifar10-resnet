@@ -18,6 +18,7 @@ from cifar10_resnet.telemetry import get_gpu_stats
 from cifar10_resnet.train import train_one_epoch
 from cifar10_resnet.evaluate import evaluate
 from cifar10_resnet.utils import get_device, show_image_and_feature_maps, time_execution
+from cifar10_resnet.checkpoint import save_checkpoint, load_checkpoint
 
 __version__ = "0.1.0"
 
@@ -38,4 +39,6 @@ __all__ = [
     "evaluate",
     "time_execution",
     "get_device",
+    "load_checkpoint",
+    "save_checkpoint"
 ]
