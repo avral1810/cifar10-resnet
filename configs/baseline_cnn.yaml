@@ -7,20 +7,22 @@ runtime:
 
 data:
   source: torchvision
-  batch_size: 1024
+  batch_size: 2048
   val_frac: 0.1
 
-  preload: true
-  preload_to_device: true
+  preload: false
+  preload_to_device: false
 
   num_workers: 0
-  pin_memory: false
+  pin_memory: true
+
+  augmentation: basic
 
 model: 
   name: simple_cnn
 
 train:
-  epochs: 100
+  epochs: 10
   optimizer: adam
   learning_rate: 0.001
   weight_decay: 0.0

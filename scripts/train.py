@@ -31,7 +31,8 @@ def get_loaders(
     preload: bool=False,
     preload_to_device: bool=False,
     seed: int=42,
-):
+    augmentation: str | None=None,
+) -> tuple[torch.utils.data.DataLoader, torch.utils.data.DataLoader, torch.utils.data.DataLoader]:
     if preload and preload_to_device and (num_workers != 0 or pin_memory is not False):
         print("Overriding `num_workers` to 0 because of preloading to GPU")
         num_workers = 0
@@ -47,6 +48,12 @@ def get_loaders(
         preload=preload,
         preload_to_device=preload_to_device,
         seed=seed,
+        augmentation=augmentation,
+    )
+    print(
+        f"Train DataLoader: {train_loader.dataset.dataset.transform} | {len(train_loader.dataset.dataset)}\n",
+        f"Val DataLoader: {val_loader.dataset.dataset.transform} | {len((val_loader.dataset.dataset))}\n",
+        f"Test DataLoader: {test_loader.dataset.transform} | {len((test_loader.dataset))}\n",
     )
     return train_loader, val_loader, test_loader
 
@@ -62,8 +69,13 @@ def main():
     pin_memory = config["data"].get("pin_memory", False) 
     preload = config["data"].get("preload", False)
     preload_to_device = config["data"].get("preload_to_device", False)
+    augmentation = config["data"].get("augmentation", "basic")
     seed = config["experiment"].get("seed", 42)
     exp_name = config["experiment"].get("name", "Unknown")
+
+    if augmentation is not None:
+        print(f"Overriding `preload_to_device`, `preload` to False for augmentation {augmentation}\n")
+        preload_to_device = preload = False
 
     print(f"===Running Experiment `{exp_name}`===")
      
@@ -86,8 +98,8 @@ def main():
         preload=preload, 
         preload_to_device=preload_to_device,
         seed=seed,
+        augmentation=augmentation,
     )
-
     model = get_model_class(config["model"]["name"])()
     criterion = get_criterion_class(config["train"]["criterion"])()
     optimizer = get_optimizer_class(config["train"]["optimizer"])(

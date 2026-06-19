@@ -1,10 +1,19 @@
 from pathlib import Path
+import warnings
+
 from torchvision import transforms
 import torchvision
-from torch.utils.data import DataLoader, Dataset, random_split, Subset, TensorDataset
+from torch.utils.data import DataLoader, Dataset, Subset, TensorDataset
 import torch
 import json
 import datasets
+
+warnings.filterwarnings(
+    "ignore",
+    message=r"dtype\(\): align should be passed as Python or NumPy boolean.*",
+    category=Warning,
+    module=r"torchvision\.datasets\.cifar",
+)
 
 class HfCIFARxDataset(Dataset):
     
@@ -100,14 +109,32 @@ def load_or_compute_stats(
     return mean, std
 
 
-def build_transform(mean: torch.Tensor, std: torch.Tensor) -> transforms.Compose:
-    transform = transforms.Compose(
-        [
-            transforms.ToTensor(),
-            transforms.Normalize(mean, std)
-        ]
-    )
+def build_transform(
+    mean: torch.Tensor,
+    std: torch.Tensor,
+    augmentation: str | None=None,
+    train: bool=True,
+) -> tuple[transforms.Compose, transforms.Compose]:
+    to_tensor = transforms.ToTensor()
+    normalize = transforms.Normalize(mean, std)
+    if not train or augmentation is None:
+        transform = transforms.Compose([
+            to_tensor,
+            normalize,
+        ])
+    elif augmentation == "basic":
+        transform = transforms.Compose(
+            [
+                transforms.RandomCrop(32, padding=4),
+                transforms.RandomHorizontalFlip(),
+                to_tensor,
+                normalize,
+            ]
+        )
+    else:
+        raise ValueError(f"Unknown augmentation `{augmentation}`")
     return transform
+
 
 def preload_dataset(
     dataset: Dataset,
@@ -135,35 +162,55 @@ def create_datasets(
     source: str="torchvision",
     preload: bool=False,
     preload_to_device: bool=False,
+    augmentation: str | None=None,
+    seed: int=42,
+    val_frac: float=0.1,
     data_dir: str | Path="data/raw",
-) -> tuple[Dataset, Dataset]:
+) -> tuple[Dataset, Dataset, Dataset]:
     mean, std = load_or_compute_stats(data_dir=data_dir, batch_size=batch_size, source=source)
-    transform = build_transform(mean, std)
-
+    train_transform, eval_tranform = build_transform(mean, std, augmentation=augmentation, train=True), build_transform(mean, std, augmentation=augmentation, train=False)
+   
     if source == "torchvision":
         train_dataset = torchvision.datasets.CIFAR10(
             root=data_dir,
             train=True,
             download=True,
-            transform=transform
+            transform=train_transform
+        )
+        val_dataset = torchvision.datasets.CIFAR10(
+            root=data_dir,
+            train=True,
+            download=True,
+            transform=eval_tranform,
         )
         test_dataset = torchvision.datasets.CIFAR10(
             root=data_dir,
             train=False,
-            transform=transform,
+            transform=eval_tranform,
             download=True
         )
     elif source in {"huggingface", "hf"}:
         hf_train = load_hf_cifar10("train")
         hf_test = load_hf_cifar10("test")
-        train_dataset = HfCIFARxDataset(hf_train, transform)
-        test_dataset = HfCIFARxDataset(hf_test, transform)
-
+        train_dataset = HfCIFARxDataset(hf_train, train_transform)
+        val_dataset = HfCIFARxDataset(hf_train, eval_tranform)
+        test_dataset = HfCIFARxDataset(hf_test, eval_tranform)
     else:
         raise ValueError(f"Unknown source: {source}")
+    train_indices, val_indices = split_dataset(
+        len(train_dataset),
+        val_frac=val_frac,
+        seed=seed,
+    )
+    train_dataset = Subset(train_dataset, train_indices)
+    val_dataset = Subset(val_dataset, val_indices)
     if preload:
-        train_dataset, test_dataset = preload_dataset(
+        train_dataset, val_dataset, test_dataset = preload_dataset(
             dataset=train_dataset, 
+            device=device, 
+            preload_to_device=preload_to_device
+        ), preload_dataset(
+            dataset=val_dataset,
             device=device, 
             preload_to_device=preload_to_device
         ), preload_dataset(
@@ -171,7 +218,7 @@ def create_datasets(
             device=device, 
             preload_to_device=preload_to_device
         )
-    return train_dataset, test_dataset
+    return train_dataset, val_dataset, test_dataset
 
 def create_dataloader(
     device: torch.device,
@@ -183,17 +230,21 @@ def create_dataloader(
     pin_memory: bool=False,
     preload: bool=False,
     preload_to_device: bool=False,
+    augmentation: str | None=None,
     data_dir: str | Path="data/raw",
+
 ) -> tuple[DataLoader, DataLoader, DataLoader]:
-    train, test = create_datasets(
+    train, val, test = create_datasets(
         device=device,
         data_dir=data_dir,
         batch_size=batch_size,
         source=source,
         preload=preload,
         preload_to_device=preload_to_device,
+        augmentation=augmentation,
+        seed=seed,
+        val_frac=val_frac,
     )
-    train, val = split_dataset(train, val_frac=val_frac, seed=seed)
     train_loader = DataLoader(
         dataset=train,
         batch_size=batch_size,
@@ -218,17 +269,11 @@ def create_dataloader(
     return train_loader, val_loader, test_loader
 
 def split_dataset(
-    dataset: torchvision.datasets.CIFAR10,
+    size: int,
     val_frac: float=0.1,
     seed: int=42,
-) -> tuple[Subset, Subset]:
-    val_size = int(len(dataset) * val_frac)
-    train_size = len(dataset) - val_size
-
+) -> tuple[torch.Tensor, torch.Tensor]:
     generator = torch.Generator().manual_seed(seed)
-    train, val = random_split(
-        dataset,
-        [train_size, val_size],
-        generator=generator
-    )
-    return train, val
+    indices = torch.randperm(size, generator=generator)
+    val_size = int(size * val_frac)
+    return indices[val_size:], indices[:val_size]
