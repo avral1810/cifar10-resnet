@@ -5,6 +5,8 @@ from pathlib import Path
 import yaml
 from torch.utils.tensorboard import SummaryWriter
 
+from argparse import ArgumentParser
+
 from cifar10_resnet import (
     create_dataloader,
     evaluate,
@@ -70,8 +72,9 @@ def get_loaders(
     return train_loader, val_loader, test_loader
 
 @time_execution
-def main():
-    config = get_config()
+def main(config_file_name: str="configs/baseline_cnn.yaml"):
+
+    config = get_config(file_name=config_file_name)
     device_str = config["runtime"].get("device", "auto")
     
     source=config["data"].get("source", "torchvision")
@@ -220,4 +223,8 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    parser = ArgumentParser()
+    parser.add_argument("--config", "-c", type=str, help="config file", default="baseline_cnn.yaml")
+    args = parser.parse_args()
+    config_file_name = f"configs/{args.config}"
+    main(config_file_name=config_file_name)
