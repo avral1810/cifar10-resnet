@@ -15,11 +15,13 @@ from cifar10_resnet import (
     get_gpu_stats,
     get_model_class,
     get_optimizer_class,
+    get_scheduler_class,
     show_image_and_feature_maps,
     time_execution,
     train_one_epoch,
     save_checkpoint,
     load_checkpoint,
+    ResNetSmall,
 )
 
 def get_config(file_name: str="configs/baseline_cnn.yaml"):
@@ -122,6 +124,17 @@ def main(config_file_name: str="configs/baseline_cnn.yaml"):
         lr=config["train"]["learning_rate"],
         weight_decay=config["train"].get("weight_decay", 0.0),
     )
+    scheduler = None
+    scheduler_config = config["train"].get("scheduler")
+    if scheduler_config is not None:
+        scheduler_class = get_scheduler_class(scheduler_config["name"])
+        scheduler_kwargs = {
+            key: value
+            for key, value in scheduler_config.items()
+            if key != "name"
+        }
+        scheduler = scheduler_class(optimizer, **scheduler_kwargs)
+
     model = model.to(device)
     epochs = config["train"]["epochs"]
     writer = create_writer(config)
@@ -187,6 +200,9 @@ def main(config_file_name: str="configs/baseline_cnn.yaml"):
         if strike >= config["train"].get('early_stop_strike', 5):
             print(f"Early Stop oppurtunity, stopping iterations at {val_accuracy:.2%}")
             break
+        if scheduler is not None:
+            scheduler.step()
+
     checkpoint = load_checkpoint(
         model=model,
         optimizer=optimizer,
@@ -223,6 +239,7 @@ def main(config_file_name: str="configs/baseline_cnn.yaml"):
 
 
 if __name__ == "__main__":
+    # main2()
     parser = ArgumentParser()
     parser.add_argument("--config", "-c", type=str, help="config file", default="baseline_cnn.yaml")
     args = parser.parse_args()

@@ -1,0 +1,37 @@
+experiment:
+  name: resnet_small_aug_basic
+  seed: 42
+
+runtime:
+  device: auto
+
+data:
+  source: torchvision
+  batch_size: 2048
+  val_frac: 0.1
+
+  preload: false
+  preload_to_device: false
+
+  num_workers: 0
+  pin_memory: true
+
+  augmentation: basic
+
+model: 
+  name: resnet_small
+
+train:
+  epochs: 100
+  optimizer: adam
+  learning_rate: 0.001
+  weight_decay: 0.0
+  criterion: cross_entropy_loss
+  early_stop_strike: 10
+
+logging:
+  print_every: 1
+
+outputs:
+  checkpoint_dir: checkpoints
+  run_dir: runs

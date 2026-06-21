@@ -1,11 +1,12 @@
 import torch
 from torch import nn
 
-from cifar10_resnet.model import SimpleCNN
+from cifar10_resnet.model import SimpleCNN, ResNetSmall
 
 
 MODEL_REGISTRY: dict[str, type[nn.Module]] = {
     "simple_cnn": SimpleCNN,
+    "resnet_small": ResNetSmall,
 }
 
 OPTIMIZER_REGISTRY: dict[str, type[torch.optim.Optimizer]] = {
@@ -16,6 +17,10 @@ OPTIMIZER_REGISTRY: dict[str, type[torch.optim.Optimizer]] = {
 CRITERION_REGISTRY: dict[str, type[nn.Module]] = {
     "cross_entropy": nn.CrossEntropyLoss,
     "cross_entropy_loss": nn.CrossEntropyLoss,
+}
+
+SCHEDULER_REGISTRY = {
+    "cosine_annealing": torch.optim.lr_scheduler.CosineAnnealingLR,
 }
 
 
@@ -45,3 +50,13 @@ def get_criterion_class(criterion_name: str) -> type[nn.Module]:
         )
 
     return CRITERION_REGISTRY[criterion_name]
+
+
+def get_scheduler_class(scheduler_name: str):
+    if scheduler_name not in SCHEDULER_REGISTRY:
+        available = ", ".join(sorted(SCHEDULER_REGISTRY))
+        raise ValueError(
+            f"Unknown scheduler '{scheduler_name}'. Available schedulers: {available}"
+        )
+
+    return SCHEDULER_REGISTRY[scheduler_name]

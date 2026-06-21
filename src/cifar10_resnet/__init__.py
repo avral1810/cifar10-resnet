@@ -8,11 +8,12 @@ from cifar10_resnet.dataset import (
     load_or_compute_stats,
     split_dataset,
 )
-from cifar10_resnet.model import SimpleCNN
+from cifar10_resnet.model import SimpleCNN, ResNetSmall
 from cifar10_resnet.registry import (
     get_criterion_class,
     get_model_class,
     get_optimizer_class,
+    get_scheduler_class,
 )
 from cifar10_resnet.telemetry import get_gpu_stats
 from cifar10_resnet.train import train_one_epoch
@@ -33,6 +34,7 @@ __all__ = [
     "get_model_class",
     "get_optimizer_class",
     "get_criterion_class",
+    "get_scheduler_class",
     "get_gpu_stats",
     "train_one_epoch",
     "show_image_and_feature_maps",
@@ -40,5 +42,6 @@ __all__ = [
     "time_execution",
     "get_device",
     "load_checkpoint",
-    "save_checkpoint"
+    "save_checkpoint",
+    "ResNetSmall"
 ]
